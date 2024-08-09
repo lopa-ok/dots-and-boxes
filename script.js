@@ -4,6 +4,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const winnerDisplay = document.getElementById("winner");
     const menu = document.getElementById("menu");
     const game = document.getElementById("game");
+    const timerDisplay = document.getElementById("timer");
+    const undoButton = document.getElementById("undo");
+    const redoButton = document.getElementById("redo");
 
     let boardSize = 5;
     let lineCoordinates = {};
@@ -12,6 +15,11 @@ document.addEventListener("DOMContentLoaded", () => {
     let numBlue = 0;
     let turn = "red";
     let isAI = false;
+    let aiDifficulty = "medium";
+    let history = [];
+    let redoHistory = [];
+    let timer;
+    let timeLeft = 60;
 
     function createBoard(size) {
         board.innerHTML = "";
@@ -21,6 +29,11 @@ document.addEventListener("DOMContentLoaded", () => {
         numBlue = 0;
         scoreDisplay.textContent = `Red: ${numRed} Blue: ${numBlue}`;
         winnerDisplay.textContent = "";
+        history = [];
+        redoHistory = [];
+        clearInterval(timer);
+        timeLeft = 60;
+        timerDisplay.textContent = `Time left: ${timeLeft}s`;
 
         for (let i = 0; i < 2 * size + 1; i++) {
             const row = document.createElement("div");
@@ -62,6 +75,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!lineCoordinates[coord]) {
             lineCoordinates[coord] = turn;
             event.target.style.backgroundColor = turn === "red" ? "red" : "blue";
+            history.push({ coord, turn });
+            redoHistory = [];
+
             let madeSquare = 0;
 
             const [i, j, k] = coord.split(",").map(Number);
@@ -81,7 +97,7 @@ document.addEventListener("DOMContentLoaded", () => {
             } else {
                 turn = turn === "red" ? "blue" : "red";
                 if (isAI && turn === "blue") {
-                    setTimeout(aiMove, 500); // Delay AI move
+                    setTimeout(aiMove, 500);
                 }
             }
         }
@@ -111,6 +127,7 @@ document.addEventListener("DOMContentLoaded", () => {
             } else {
                 winnerDisplay.textContent = "It's a draw!";
             }
+            clearInterval(timer);
         }
     }
 
@@ -172,17 +189,71 @@ document.addEventListener("DOMContentLoaded", () => {
         return false;
     }
 
-    function startGame(vsAI) {
+    function startGame(vsAI, difficulty) {
         isAI = vsAI;
+        aiDifficulty = difficulty || "medium";
         menu.style.display = "none";
         game.style.display = "block";
         createBoard(boardSize);
+        startTimer();
+    }
+
+    function startTimer() {
+        timer = setInterval(() => {
+            timeLeft--;
+            timerDisplay.textContent = `Time left: ${timeLeft}s`;
+            if (timeLeft <= 0) {
+                clearInterval(timer);
+                alert("Time's up!");
+                checkGameOver();
+            }
+        }, 1000);
+    }
+
+    function undoMove() {
+        if (history.length > 0) {
+            const lastMove = history.pop();
+            lineCoordinates[lastMove.coord] = null;
+            document.querySelector(`[data-coord="${lastMove.coord}"]`).style.backgroundColor = "";
+            if (turn === "red") {
+                numRed--;
+            } else {
+                numBlue--;
+            }
+            turn = lastMove.turn;
+            redoHistory.push(lastMove);
+            scoreDisplay.textContent = `Red: ${numRed} Blue: ${numBlue}`;
+        }
+    }
+
+    function redoMove() {
+        if (redoHistory.length > 0) {
+            const move = redoHistory.pop();
+            lineCoordinates[move.coord] = move.turn;
+            document.querySelector(`[data-coord="${move.coord}"]`).style.backgroundColor = move.turn === "red" ? "red" : "blue";
+            history.push(move);
+            if (move.turn === "red") {
+                numRed++;
+            } else {
+                numBlue++;
+            }
+            turn = move.turn === "red" ? "blue" : "red";
+            scoreDisplay.textContent = `Red: ${numRed} Blue: ${numBlue}`;
+            if (isAI && turn === "blue") {
+                setTimeout(aiMove, 500);
+            }
+        }
     }
 
     document.getElementById("startPlayerVsPlayer").addEventListener("click", () => startGame(false));
-    document.getElementById("startPlayerVsAI").addEventListener("click", () => startGame(true));
-
+    document.getElementById("startPlayerVsAI").addEventListener("click", () => startGame(true, "medium"));
+    document.getElementById("startAIeasy").addEventListener("click", () => startGame(true, "easy"));
+    document.getElementById("startAIhard").addEventListener("click", () => startGame(true, "hard"));
+    
     document.getElementById("small").addEventListener("click", () => createBoard(5));
     document.getElementById("medium").addEventListener("click", () => createBoard(8));
     document.getElementById("large").addEventListener("click", () => createBoard(11));
+    
+    undoButton.addEventListener("click", undoMove);
+    redoButton.addEventListener("click", redoMove);
 });

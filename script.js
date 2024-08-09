@@ -2,6 +2,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const board = document.getElementById("board");
     const scoreDisplay = document.getElementById("score");
     const winnerDisplay = document.getElementById("winner");
+    const menu = document.getElementById("menu");
+    const game = document.getElementById("game");
 
     let boardSize = 5;
     let lineCoordinates = {};
@@ -9,6 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let numRed = 0;
     let numBlue = 0;
     let turn = "red";
+    let isAI = false;
 
     function createBoard(size) {
         board.innerHTML = "";
@@ -77,6 +80,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 checkGameOver();
             } else {
                 turn = turn === "red" ? "blue" : "red";
+                if (isAI && turn === "blue") {
+                    setTimeout(aiMove, 500); // Delay AI move
+                }
             }
         }
     }
@@ -108,9 +114,75 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    function aiMove() {
+        const availableMoves = Object.keys(lineCoordinates).filter(coord => !lineCoordinates[coord]);
+        const bestMove = findBestMove(availableMoves);
+        if (bestMove) {
+            const lineElement = document.querySelector(`[data-coord="${bestMove}"]`);
+            if (lineElement) {
+                lineElement.click();
+            }
+        }
+    }
+
+    function findBestMove(availableMoves) {
+        let bestMove = null;
+        let bestScore = -Infinity;
+
+        for (const move of availableMoves) {
+            const tempLineCoordinates = { ...lineCoordinates, [move]: "blue" };
+            const tempBoxColors = { ...boxColors };
+            let score = evaluateMove(move, tempLineCoordinates, tempBoxColors);
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestMove = move;
+            }
+        }
+
+        return bestMove;
+    }
+
+    function evaluateMove(move, tempLineCoordinates, tempBoxColors) {
+        const [i, j, k] = move.split(",").map(Number);
+        let score = 0;
+
+        if (i === 0) {
+            if (checkSquareScore(j, k, tempLineCoordinates, tempBoxColors)) score++;
+            if (checkSquareScore(j - 1, k, tempLineCoordinates, tempBoxColors)) score++;
+        } else {
+            if (checkSquareScore(k, j, tempLineCoordinates, tempBoxColors)) score++;
+            if (checkSquareScore(k, j - 1, tempLineCoordinates, tempBoxColors)) score++;
+        }
+
+        return score;
+    }
+
+    function checkSquareScore(j, k, tempLineCoordinates, tempBoxColors) {
+        if (j < 0 || k < 0 || j >= boardSize || k >= boardSize) return false;
+        const horiz1 = tempLineCoordinates[`0,${j},${k}`];
+        const horiz2 = tempLineCoordinates[`0,${j + 1},${k}`];
+        const vert1 = tempLineCoordinates[`1,${k},${j}`];
+        const vert2 = tempLineCoordinates[`1,${k + 1},${j}`];
+
+        if (horiz1 && horiz2 && vert1 && vert2) {
+            tempBoxColors[`${j},${k}`] = "rgba(0,0,255,0.5)";
+            return true;
+        }
+        return false;
+    }
+
+    function startGame(vsAI) {
+        isAI = vsAI;
+        menu.style.display = "none";
+        game.style.display = "block";
+        createBoard(boardSize);
+    }
+
+    document.getElementById("startPlayerVsPlayer").addEventListener("click", () => startGame(false));
+    document.getElementById("startPlayerVsAI").addEventListener("click", () => startGame(true));
+
     document.getElementById("small").addEventListener("click", () => createBoard(5));
     document.getElementById("medium").addEventListener("click", () => createBoard(8));
     document.getElementById("large").addEventListener("click", () => createBoard(11));
-
-    createBoard(boardSize);
 });
